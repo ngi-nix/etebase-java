@@ -6,7 +6,7 @@
     rust-overlay.url = "github:oxalica/rust-overlay";
   };
   
-  outputs = { self, nixpkgs, rust-overlay }:
+  outputs = { self, nixpkgs }:
     let
       
       # Generate a user-friendly version number.
@@ -19,7 +19,7 @@
       forAllSystems = f: nixpkgs.lib.genAttrs supportedSystems (system: f system);
       
       # Nixpkgs instantiated for supported system types.
-      nixpkgsFor = forAllSystems (system: import nixpkgs { inherit system; overlays = [ self.overlay rust-overlay.overlay ]; });
+      nixpkgsFor = forAllSystems (system: import nixpkgs { inherit system; overlays = [ self.overlay ]; });
 
       pkgs = import nixpkgs {
         system = "x86_64-linux";
@@ -49,10 +49,6 @@
               hash = "sha256-mvCjK9jPcGCMmuwa1e2QFd+c7ak17NdxP5LkRGWc9as=";
             };
             
-            rust-bin' = rust-bin.nightly.latest.default.override {
-                targets = [ "aarch64-linux-android" "armv7-linux-androideabi" "i686-linux-android" "x86_64-linux-android" ];
-            };
-
             buildInputs = [ openssl ];
             
             nativeBuildInputs = [
@@ -60,12 +56,20 @@
             ] ++ (with rustPlatform; [
               cargoSetupHook
               rust.cargo
-              rust-bin'
+              rust.rustc
               rustup
             ]);
 
+            preConfigure = ''
+              export HOME=`mktemp -d`
+            '';
+
+            RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
+            
             buildPhase = ''
                export PATH="$PATH:/${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin/";
+               #rustup install nightly
+               #rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
                bash ./build.sh;
             '';
             
